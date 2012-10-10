@@ -175,6 +175,26 @@ Ns2MobilityHelper::GetMobilityModel (std::string idString, const ObjectStore &st
   return model;
 }
 
+Ptr<ConstantVelocityMobilityModel>
+Ns2MobilityHelper::GetNodeMobilityModel (std::string idString, const Ptr<Object> object) const
+{
+  std::istringstream iss;
+  iss.str (idString);
+  uint32_t id (0);
+  iss >> id;
+  if (object == 0)
+    {
+      return 0;
+    }
+  Ptr<ConstantVelocityMobilityModel> model = object->GetObject<ConstantVelocityMobilityModel> ();
+  if (model == 0)
+    {
+      model = CreateObject<ConstantVelocityMobilityModel> ();
+      object->AggregateObject (model);
+    }
+  return model;
+}
+
 
 void
 Ns2MobilityHelper::ConfigNodesMovements (const ObjectStore &store) const
@@ -296,6 +316,224 @@ Ns2MobilityHelper::ConfigNodesMovements (const ObjectStore &store) const
 
           // get mobility model of node
           Ptr<ConstantVelocityMobilityModel> model = GetMobilityModel (nodeId,store);
+
+          // if model not exists, continue
+          if (model == 0)
+            {
+              NS_LOG_ERROR ("Unknown node ID (corrupted file?): " << nodeId << "\n");
+              continue;
+            }
+
+
+          /*
+           * In this case a initial position is being seted
+           * line like $node_(0) set X_ 151.05190721688197
+           */
+          if (IsSetInitialPos (pr))
+            {
+              // This is the second time this file has been parsed,
+              // and the initial node positions were already set the
+              // first time.  So, do nothing this time with this line.
+              continue;
+            }
+
+          else // NOW EVENTS TO BE SCHEDULED
+            {
+
+              // This is a scheduled event, so time at should be present
+              double at;
+
+              if (!IsNumber (pr.tokens[2]))
+                {
+                  NS_LOG_WARN ("Time is not a number: " << pr.tokens[2]);
+                  continue;
+                }
+
+              at = pr.dvals[2]; // set time at
+
+              if ( at < 0 )
+                {
+                  NS_LOG_WARN ("Time is less than cero: " << at);
+                  continue;
+                }
+
+
+
+              /*
+               * In this case a new waypoint is added
+               * line like $ns_ at 1 "$node_(0) setdest 2 3 4"
+               */
+              if (IsSchedMobilityPos (pr))
+                {
+                  if (last_pos[iNodeId].m_targetArrivalTime > at)
+                    {
+                      NS_LOG_LOGIC ("Did not reach a destination! stoptime = " << last_pos[iNodeId].m_targetArrivalTime << ", at = "<<  at);
+                      double actuallytraveled = at - last_pos[iNodeId].m_travelStartTime;
+                      Vector reached = Vector (
+                          last_pos[iNodeId].m_startPosition.x + last_pos[iNodeId].m_speed.x * actuallytraveled,
+                          last_pos[iNodeId].m_startPosition.y + last_pos[iNodeId].m_speed.y * actuallytraveled,
+                          0
+                          );
+                      NS_LOG_LOGIC ("Final point = " << last_pos[iNodeId].m_finalPosition << ", actually reached = " << reached);
+                      last_pos[iNodeId].m_stopEvent.Cancel ();
+                      last_pos[iNodeId].m_finalPosition = reached;
+                    }
+                  //                                     last position     time  X coord     Y coord      velocity
+                  last_pos[iNodeId] = SetMovement (model, last_pos[iNodeId].m_finalPosition, at, pr.dvals[5], pr.dvals[6], pr.dvals[7]);
+
+                  // Log new position
+                  NS_LOG_DEBUG ("Positions after parse for node " << iNodeId << " " << nodeId << " position =" << last_pos[iNodeId].m_finalPosition);
+                }
+
+
+              /*
+               * Scheduled set position
+               * line like $ns_ at 4.634906291962 "$node_(0) set X_ 28.675920486450"
+               */
+              else if (IsSchedSetPos (pr))
+                {
+                  //                                         time  coordinate   coord value
+                  last_pos[iNodeId].m_finalPosition = SetSchedPosition (model, at, pr.tokens[5], pr.dvals[6]);
+                  if (last_pos[iNodeId].m_targetArrivalTime > at)
+                    {
+                      last_pos[iNodeId].m_stopEvent.Cancel ();
+                    }
+                  last_pos[iNodeId].m_targetArrivalTime = at;
+                  last_pos[iNodeId].m_travelStartTime = at;
+                  // Log new position
+                  NS_LOG_DEBUG ("Positions after parse for node " << iNodeId << " " << nodeId <<
+                                " position =" << last_pos[iNodeId].m_finalPosition);
+                }
+              else
+                {
+                  NS_LOG_WARN ("Format Line is not correct: " << line << "\n");
+                }
+            }
+        }
+      file.close ();
+    }
+}
+
+void
+Ns2MobilityHelper::ConfigNodeMovements (const Ptr<Object> node) const
+{
+  std::map<int, DestinationPoint> last_pos;    // Stores previous movement scheduled for each node
+
+  //*****************************************************************
+  // Parse the file the first time to get the initial node positions.
+  //*****************************************************************
+
+  // Look through the whole the file for the the initial node
+  // positions to make this helper robust to handle trace files with
+  // the initial node positions at the end.
+  std::ifstream file (m_filename.c_str (), std::ios::in);
+  if (file.is_open ())
+    {
+      while (!file.eof () )
+        {
+          int         iNodeId = 0;
+          std::string nodeId;
+          std::string line;
+
+          getline (file, line);
+
+          // ignore empty lines
+          if (line.empty ())
+            {
+              continue;
+            }
+
+          ParseResult pr = ParseNs2Line (line); // Parse line and obtain tokens
+
+          // Check if the line corresponds with setting the initial
+          // node positions
+          if (pr.tokens.size () != 4)
+            {
+              continue;
+            }
+
+          // Get the node Id
+          nodeId  = GetNodeIdString (pr);
+          iNodeId = GetNodeIdInt (pr);
+          if (iNodeId == -1)
+            {
+              NS_LOG_ERROR ("Node number couldn't be obtained (corrupted file?): " << line << "\n");
+              continue;
+            }
+
+          // get mobility model of node
+          Ptr<ConstantVelocityMobilityModel> model = GetNodeMobilityModel (nodeId,node);
+
+          // if model not exists, continue
+          if (model == 0)
+            {
+              NS_LOG_ERROR ("Unknown node ID (corrupted file?): " << nodeId << "\n");
+              continue;
+            }
+
+
+          /*
+           * In this case a initial position is being seted
+           * line like $node_(0) set X_ 151.05190721688197
+           */
+          if (IsSetInitialPos (pr))
+            {
+              DestinationPoint point;
+              //                                                    coord         coord value
+              point.m_finalPosition = SetInitialPosition (model, pr.tokens[2], pr.dvals[3]);
+              last_pos[iNodeId] = point;
+
+              // Log new position
+              NS_LOG_DEBUG ("Positions after parse for node " << iNodeId << " " << nodeId <<
+                            " position = " << last_pos[iNodeId].m_finalPosition);
+            }
+        }
+      file.close ();
+    }
+
+  //*****************************************************************
+  // Parse the file a second time to get the rest of its values
+  //*****************************************************************
+
+  // The reason the file is parsed again is to make this helper robust
+  // to handle trace files with the initial node positions at the end.
+  file.open (m_filename.c_str (), std::ios::in);
+  if (file.is_open ())
+    {
+      while (!file.eof () )
+        {
+          int         iNodeId = 0;
+          std::string nodeId;
+          std::string line;
+
+          getline (file, line);
+
+          // ignore empty lines
+          if (line.empty ())
+            {
+              continue;
+            }
+
+          ParseResult pr = ParseNs2Line (line); // Parse line and obtain tokens
+
+          // Check if the line corresponds with one of the three types of line
+          if (pr.tokens.size () != 4 && pr.tokens.size () != 7 && pr.tokens.size () != 8)
+            {
+              NS_LOG_ERROR ("Line has not correct number of parameters (corrupted file?): " << line << "\n");
+              continue;
+            }
+
+          // Get the node Id
+          nodeId  = GetNodeIdString (pr);
+          iNodeId = GetNodeIdInt (pr);
+          if (iNodeId == -1)
+            {
+              NS_LOG_ERROR ("Node number couldn't be obtained (corrupted file?): " << line << "\n");
+              continue;
+            }
+
+          // get mobility model of node
+          Ptr<ConstantVelocityMobilityModel> model = GetNodeMobilityModel (nodeId,node);
 
           // if model not exists, continue
           if (model == 0)
@@ -776,6 +1014,11 @@ void
 Ns2MobilityHelper::Install (void) const
 {
   Install (NodeList::Begin (), NodeList::End ());
+}
+void
+Ns2MobilityHelper::Install (Ptr<Object> node) const
+{
+	ConfigNodeMovements (node);
 }
 
 } // namespace ns3

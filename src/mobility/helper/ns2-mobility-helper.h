@@ -90,6 +90,9 @@ public:
    */
   void Install (void) const;
 
+  //Install to only one node
+  void Install (Ptr<Object> node) const;
+
   /**
    * \param begin an iterator which points to the start of the input
    *        object array.
@@ -111,7 +114,9 @@ public:
     virtual Ptr<Object> Get (uint32_t i) const = 0;
   };
   void ConfigNodesMovements (const ObjectStore &store) const;
+  void ConfigNodeMovements (const Ptr<Object> node) const;
   Ptr<ConstantVelocityMobilityModel> GetMobilityModel (std::string idString, const ObjectStore &store) const;
+  Ptr<ConstantVelocityMobilityModel> GetNodeMobilityModel (std::string idString, const Ptr<Object> object) const;
   std::string m_filename;
 };
 
