@@ -825,6 +825,9 @@ def build(bld):
     # and module test libraries have been set.
     bld.add_subdirs('utils')
 
+    # Add vdt folder
+    bld.add_subdirs('vdt')
+
     # Set this so that the lists will be printed at the end of this
     # build command.
     bld.env['PRINT_BUILT_MODULES_AT_END'] = True

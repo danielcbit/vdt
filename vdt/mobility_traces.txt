@@ -1,0 +1,6 @@
+5
+/home/daniel/workspace/ns-3-dev/src/mobility/examples/default.ns_movements
+/home/daniel/workspace/ns-3-dev/src/mobility/examples/default.ns_movements
+/home/daniel/workspace/ns-3-dev/src/mobility/examples/default.ns_movements
+/home/daniel/workspace/ns-3-dev/src/mobility/examples/default.ns_movements
+/home/daniel/workspace/ns-3-dev/src/mobility/examples/default.ns_movements

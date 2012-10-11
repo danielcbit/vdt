@@ -1,0 +1,11 @@
+## -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
+
+def build(bld):
+    obj = bld.create_ns3_program('vdt-tap-wifi-virtual-machine', ['csma', 'tap-bridge', 'internet', 'wifi', 'mobility'])
+    obj.source = ['pugixml/pugixml.cpp','vdt-tap-wifi-virtual-machine.cc']
+    obj.env.append_value("LIB", "virt") # e.g. to link to libvirt
+    obj.env.append_value("LIB", "xml2") # e.g. to link to libxml2
+    ##obj.path = obj.path.find_dir('scratch')
+    #obj.target = vdt-tap-wifi-virtual-machine
+    #obj.name = obj.target
+

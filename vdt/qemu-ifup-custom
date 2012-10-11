@@ -1,0 +1,9 @@
+#!/bin/sh
+
+nic=$1
+
+if [ -f /etc/default/qemu-kvm ]; then
+    . /etc/default/qemu-kvm
+fi
+
+ifconfig $nic 0.0.0.0 promisc up
