@@ -628,7 +628,6 @@ def add_examples_programs(bld):
             if os.path.isdir(os.path.join('examples', dir)):
                 bld.add_subdirs(os.path.join('examples', dir))
 
-
 def add_scratch_programs(bld):
     all_modules = [mod[len("ns3-"):] for mod in bld.env['NS3_ENABLED_MODULES']]
     for filename in os.listdir("scratch"):
