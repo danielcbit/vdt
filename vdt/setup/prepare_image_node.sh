@@ -20,7 +20,7 @@ SETUP="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 NODENAME=$1
 IMAGE=$2
 IPADDR=$3
-NETMASK="255.255.0.0"
+NETMASK="255.255.255.0"
 
 echo "------- Node setup ---------------------------------------------------"
 

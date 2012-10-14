@@ -598,6 +598,11 @@ main (int argc, char *argv[])
 		writer.result = "";
 	}
 
+	// Setup bridge to enable broadcast
+	std::cout << "Setuping bridge device to allow broadcast";
+	concat = "sudo /bin/bash " + getFilenamePath(srcImage) + "setup_bridge.sh";
+	system(concat.c_str());
+
 	//print_doc("UTF8 file from wide stream", document, resultado);
 
 	//Using the loop to attribute traces to each node
@@ -742,7 +747,7 @@ main (int argc, char *argv[])
     internet.Install (nodes);
 
 	Ipv4AddressHelper ipv4;
-	ipv4.SetBase ("10.2.0.0", "255.255.0.0");
+	ipv4.SetBase ("10.2.0.0", "255.255.255.0");
     Ipv4InterfaceContainer interfaces = ipv4.Assign (devices);
 
 	//
