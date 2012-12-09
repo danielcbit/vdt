@@ -67,10 +67,12 @@
 //                     +--------+
 //
 #include <iostream>
+#include <string>
 #include <fstream>
 #include <sstream>
 #include <math.h>
 #include <csignal>
+#include <unistd.h>
 
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
@@ -135,6 +137,16 @@ std::string vmName(int num)
 	return "hydra-base" + ret;
 }
 
+std::string getBusName(std::string fileName)
+{
+    std::size_t pos;
+    std::string busName;
+    pos = fileName.find("ns_movements/");
+    pos += 13;
+    busName = fileName.substr(pos,4);
+    return busName;
+}
+
 std::string brName(int num)
 {
 	std::stringstream ss;
@@ -162,6 +174,19 @@ std::string tapName(int num)
 	ss >> ret;
 
 	return "tap" + ret;
+
+}
+
+std::string hostNetName(int num)
+{
+	std::stringstream ss;
+
+	// the number is converted to string with the help of stringstream
+	ss << num;
+	std::string ret;
+	ss >> ret;
+
+	return "hostnet" + ret;
 
 }
 
@@ -265,7 +290,7 @@ void stopSystem(int sig = 0){
 	virConnectClose(conn);
 
 	//Dar tempo para as VMs encerrarem
-	sleep(5);
+    sleep(5);
 
 	for(int i = 0; i < globalNumOfNodes; i++){
 		//Da um down na interface tap
@@ -529,7 +554,7 @@ main (int argc, char *argv[])
 			copyImage(srcImage,getFilenamePath(srcImage) + imageName(i,getFilename(srcImage)));
 
 			//configura ip e nome da maquina na imagem
-			concat = "sudo /bin/bash " + getFilenamePath(srcImage) + "prepare_image_node.sh " + vmName(i) + " " + getFilenamePath(srcImage) + imageName(i,getFilename(srcImage)) + " " + ipAddr(i);
+			concat = "sudo /bin/bash " + getFilenamePath(srcImage) + "prepare_image_node.sh " + getBusName(traceFileArray[i]) + " " + getFilenamePath(srcImage) + imageName(i,getFilename(srcImage)) + " " + ipAddr(i);
 			system(concat.c_str());
 
 		} else {
@@ -546,6 +571,10 @@ main (int argc, char *argv[])
 			//muda o nome da interface de ponte
 			pugi::xml_attribute atributo = document.child("domain").child("devices").child("interface").child("source").first_attribute();
 			atributo.set_value(brName(i).c_str());
+
+			//muda o nome da interface de hostnet
+			atributo = document.child("domain").child("devices").child("interface").next_sibling("interface").child("target").first_attribute();
+			atributo.set_value(hostNetName(i).c_str());
 
 			//muda o nome da imagem de disco
 			atributo = document.child("domain").child("devices").child("disk").child("source").first_attribute();

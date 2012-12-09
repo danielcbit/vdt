@@ -33,6 +33,12 @@
       <model type='virtio'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </interface>
+    <interface type='network'>
+      <source network='default'/>
+      <target dev='hostnet1'/>
+      <model type='virtio'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
+    </interface>
     <serial type='pty'>
       <target port='0'/>
     </serial>
