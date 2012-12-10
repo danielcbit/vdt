@@ -446,6 +446,7 @@ main (int argc, char *argv[])
 
 	int    mNodes;
 	double duration;
+    double txpDistance = 250.0; //Transmis distance
 
 	int sNodes;
 
@@ -690,8 +691,9 @@ main (int argc, char *argv[])
 	// We're going to use 802.11 A so set up a wifi helper to reflect that.
 	//
 	WifiHelper wifi = WifiHelper::Default ();
-    wifi.SetStandard (WIFI_PHY_STANDARD_80211g);
-	wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("ErpOfdmRate54Mbps"));
+    wifi.SetStandard (WIFI_PHY_STANDARD_80211b);
+	wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("DsssRate11Mbps"),
+            "ControlMode", StringValue ("DsssRate11Mbps"));
 
 	//
 	// No reason for pesky access points, so we'll use an ad-hoc network.
@@ -702,7 +704,9 @@ main (int argc, char *argv[])
 	//
 	// Configure the physcial layer.
 	//
-	YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
+	YansWifiChannelHelper wifiChannel;
+    wifiChannel.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
+    wifiChannel.AddPropagationLoss ("ns3::RangePropagationLossModel", "MaxRange", DoubleValue (txpDistance));
 	YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
 	wifiPhy.SetChannel (wifiChannel.Create ());
 
