@@ -86,6 +86,7 @@
 #include "ns3/network-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/ns2-mobility-helper.h"
+#include "ns3/netanim-module.h"
 #include "ns3/wifi-module.h"
 #include "ns3/tap-bridge-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
@@ -282,6 +283,7 @@ void stopSystem(int sig = 0){
 
 	//Checar esses passos e erros que podem estar dando
 	//Destroi o simulador
+	Simulator::Stop();
 	Simulator::Destroy ();
 
 	//Fechar o arquivo de log
@@ -420,7 +422,7 @@ CourseChange (std::string context, Ptr<const MobilityModel> model)
 		" x = " << position.x << ", y = " << position.y);
 }*/
 
-int 
+int
 main (int argc, char *argv[])
 {
 
@@ -446,7 +448,6 @@ main (int argc, char *argv[])
 
 	int    mNodes;
 	double duration;
-    double txpDistance = 250.0; //Transmis distance
 
 	int sNodes;
 
@@ -706,7 +707,10 @@ main (int argc, char *argv[])
 	//
 	YansWifiChannelHelper wifiChannel;
     wifiChannel.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
-    wifiChannel.AddPropagationLoss ("ns3::RangePropagationLossModel", "MaxRange", DoubleValue (txpDistance));
+    wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
+    wifiChannel.AddPropagationLoss("ns3::NakagamiPropagationLossModel",
+    		  "m0", DoubleValue(1.5), "m1", DoubleValue(0.75), "m2", DoubleValue(0.75));
+    wifiChannel.AddPropagationLoss("ns3::RandomPropagationLossModel");
 	YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
 	wifiPhy.SetChannel (wifiChannel.Create ());
 
@@ -857,6 +861,7 @@ main (int argc, char *argv[])
 	std::cout << "System Running..." << std::endl;
 	Simulator::Run ();
 
+	AnimationInterface anim ("animation.xml");
 	//Para o ambiente de forma graciosa
 	stopSystem();
 
