@@ -109,6 +109,9 @@ virConnectPtr conn;
 //Ofstream do arquivo de log
 std::ofstream os;
 
+//Numero da Run atual
+int currentRun = 0;
+
 // Prints actual position and velocity when a course change event occurs
 static void
 CourseChange (std::ostream *os, std::string foo, Ptr<const MobilityModel> mobility)
@@ -175,7 +178,6 @@ std::string tapName(int num)
   ss >> ret;
 
   return "tap" + ret;
-
 }
 
 std::string hostNetName(int num)
@@ -201,6 +203,30 @@ std::string vnetName(int num)
   ss >> ret;
 
   return "vnet" + ret;
+}
+
+std::string animationName(int num)
+{
+  std::stringstream ss;
+
+  // the number is converted to string with the help of stringstream
+  ss << num;
+  std::string ret;
+  ss >> ret;
+
+  return "animation" + ret;
+}
+
+std::string runFolderName(int num)
+{
+  std::stringstream ss;
+
+  // the number is converted to string with the help of stringstream
+  ss << num;
+  std::string ret;
+  ss >> ret;
+
+  return "run" + ret;
 
 }
 
@@ -280,19 +306,19 @@ void stopSystem(int sig = 0){
 
   std::cout << "Signal Detected: " << sig  << std::endl;
 
-
   //Checar esses passos e erros que podem estar dando
   //Destroi o simulador
-  Simulator::Stop();
   Simulator::Destroy ();
 
   //Fechar o arquivo de log
   os.close();
+
+  //Salvar arquivo main-ns2-mob.log
+  concat =  "mv main-ns2-mob.log /home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun);
+  system (concat.c_str());
+
   //Fecha a conexao com o libvirt
   virConnectClose(conn);
-
-  //Dar tempo para as VMs encerrarem
-  sleep(5);
 
   for(int i = 0; i < globalNumOfNodes; i++){
       //Da um down na interface tap
@@ -300,6 +326,9 @@ void stopSystem(int sig = 0){
       system(concat.c_str());
       //Remove interface tap da bridge
       concat = command3 + brName(i) + " " + tapName(i);
+      system(concat.c_str());
+      //Remove interface tap
+      concat = command5 + tapName(i);
       system(concat.c_str());
       //Da um down na interface bridge
       concat = command1 + brName(i) + command2;
@@ -422,6 +451,78 @@ CourseChange (std::string context, Ptr<const MobilityModel> model)
 		" x = " << position.x << ", y = " << position.y);
 }*/
 
+void colectLogs()
+{
+  std::string concat;
+  std::string command1 = "./vdt/genHostsFile.sh";
+  std::string command2 = "./vdt/slurp_expect.exp root hosts ";
+  std::string command3 = " /root/logs/throughput .";
+  std::string command4 = "./vdt/pssh_expect.exp root hosts \"rm -rf /root/logs/throughput/*\"";
+  std::string command5 = "./vdt/pssh_expect.exp root hosts \"uci get system.@system[0].hostname\"";
+
+  //Criar pasta de destino dos arquivos da rodada
+  concat = "mkdir -p /home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun);
+  system (concat.c_str());
+
+  //Gerar arquivo de host
+  system (command1.c_str());
+
+  //Copiar arquivos das maquinas virtuais para pasta de experimentos
+  concat  = command2 + "/home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun) + command3;
+  system (concat.c_str());
+
+  //Apagar arquivos das maquinas virtuais
+  system (command4.c_str());
+
+  //Criar arquivo de hostnames
+  concat = command5 + " > " + "/home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun) + "/hostnames.txt";
+  system (concat.c_str());
+
+  //Salvar arquivos pcap
+  concat = "mkdir " + runFolderName(currentRun);
+  system (concat.c_str());
+  concat = "mv *.pcap " + runFolderName(currentRun);
+  system (concat.c_str());
+}
+
+void stopVirtualMachines()
+{
+  std::string command1 = "./vdt/genHostsFile.sh";
+  std::string command2 = "./vdt/pssh_expect.exp root hosts reboot";
+
+  //Gerar arquivo de host
+  system (command1.c_str());
+
+  //Chama o reboot das VMs para desliga-las
+  system (command2.c_str());
+}
+
+void printUsage (char* argv[])
+{
+  std::cout << "Usage of " << argv[0] << " :\n\n"
+               "NS_GLOBAL_VALUE=\"RngRun=1\"./waf --run \"vdt-tap-wifi-virtual-machine \n"
+               "--traceFile='/home/daniel/workspace/ns-3-dev/src/tap-bridge/examples/mobility_traces.txt'\n"
+               "--mNodes=3 --sNodes=0 --duration=1000.0 --logFile=main-ns2-mob.log\n"
+               "--sXMLTemplate='/home/daniel/workspace/ns-3-dev/src/tap-bridge/examples/node.xml'\n"
+               "--mXMLTemplate='/home/daniel/workspace/ns-3-dev/src/tap-bridge/examples/node.xml'\n"
+               "--srcImage='/home/daniel/workspace/ns-3-dev/src/tap-bridge/examples/setup/hydra-node.image'\"\n\n"
+
+               "NOTE 1: The RngRun=1 variable sets the run number in the NS3::GlobalValue to that consequent runs can lead to non deterministc results"
+               "NOTE 2: ns2-traces-files-descriptors could be an absolute or relative path. You could use the file default.ns_movements\n"
+               "        included in the same directory that the present file.\n\n"
+               "NOTE 3: Number of mobile nodes present in the trace file must match with the command line argument mNodes and must\n"
+               "        be a positive number. Note that you must know it before to be able to load it and this has to match the number\n"
+               "        of mobile nodes.\n\n"
+               "NOTE 4: Number of static nodes must be a positive number or zero. If zero, it's assumed that all nodes\n"
+               "        are mobile.\n\n"
+               "NOTE 5: Duration must be a positive number and has to match the duration of the movement files. Note that you must know\n"
+               "        it before to be able to load it.\n\n"
+               "NOTE 6: The XML templates are used to define the configuration of the mobile and static nodes.\n"
+               "        The Static Node XML template can be left undefined.  \n"
+               "NOTE 7: The Source Disk Image must be in the folder are used to define the configuration of the mobile and static nodes.\n"
+               "        The Static Node XML template can be left undefined.  \n";
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -444,12 +545,15 @@ main (int argc, char *argv[])
   std::string mXMLTemplateFile;
   std::string srcImage;
 
+  int mNodes; //Number of Mobile Nodes
+  int sNodes; // Number of Static Nodes
   int tNodes; //Total number of nodes = mNodes + sNodes.
+  double duration; //Run Duration. Must be the same duration from nslog files
 
-  int    mNodes;
-  double duration;
+  IntegerValue runValue;
+  GlobalValue::GetValueByName(std::string("RngRun"), runValue);
+  currentRun = runValue.Get (); //Number of the current run being performed to be performed.
 
-  int sNodes;
 
   // Enable logging from the ns2 helper
   //LogComponentEnable ("Ns2MobilityHelper",LOG_LEVEL_DEBUG);
@@ -469,28 +573,7 @@ main (int argc, char *argv[])
   // Check command line arguments
   if (traceFile.empty () || mNodes <= 0 || duration <= 0 || sNodes < 0 || logFile.empty () || mXMLTemplateFile.empty () || srcImage.empty())
     {
-      std::cout << "Usage of " << argv[0] << " :\n\n"
-                   "./waf --run \"tap-wifi-virtual-machine \n"
-                   "--traceFile='/home/daniel/workspace/ns-3-dev/src/tap-bridge/examples/mobility_traces.txt'\n"
-                   "--mNodes=3 --sNodes=0 --duration=1000.0 --logFile=main-ns2-mob.log\n"
-                   "--sXMLTemplate='/home/daniel/workspace/ns-3-dev/src/tap-bridge/examples/node.xml'\n"
-                   "--mXMLTemplate='/home/daniel/workspace/ns-3-dev/src/tap-bridge/examples/node.xml'\n"
-                   "--srcImage='/home/daniel/workspace/ns-3-dev/src/tap-bridge/examples/setup/hydra-node.image'\"\n\n"
-
-                   "NOTE 1: ns2-traces-files-descriptors could be an absolute or relative path. You could use the file default.ns_movements\n"
-                   "        included in the same directory that the present file.\n\n"
-                   "NOTE 2: Number of mobile nodes present in the trace file must match with the command line argument mNodes and must\n"
-                   "        be a positive number. Note that you must know it before to be able to load it and this has to match the number\n"
-                   "        of mobile nodes.\n\n"
-                   "NOTE 3: Number of static nodes must be a positive number or zero. If zero, it's assumed that all nodes\n"
-                   "        are mobile.\n\n"
-                   "NOTE 4: Duration must be a positive number and has to match the duration of the movement files. Note that you must know\n"
-                   "        it before to be able to load it.\n\n"
-                   "NOTE 5: The XML templates are used to define the configuration of the mobile and static nodes.\n"
-                   "        The Static Node XML template can be left undefined.  \n"
-                   "NOTE 6: The Source Disk Image must be in the folder are used to define the configuration of the mobile and static nodes.\n"
-                   "        The Static Node XML template can be left undefined.  \n";
-
+      printUsage (argv);
       return 0;
     }
 
@@ -600,16 +683,15 @@ main (int argc, char *argv[])
       concat = command1 + brName(i);
 
       //Cria interface ponte
-      std::cout << "Resultado bridge: "  << system (concat.c_str()) << " \n";
+      std::cout << "Resultado bridge: "  << system (concat.c_str()) << std::endl;
 
       //Seta o Foward delay para 0
       concat = command7 + brName(i) + " 0";
       system (concat.c_str());
 
-
       //Sobe interface ponte
       concat = command2 + brName(i) + command3;
-      std::cout << "Resultado ifconfig bridge: "  << system (concat.c_str()) << " \n";
+      std::cout << "Resultado ifconfig bridge: "  << system (concat.c_str()) << std::endl;
 
       if (!virDomainCreateWithFlags(dom[i], VIR_DOMAIN_START_AUTODESTROY)) {
           fprintf(stderr, "Guest %s has booted ", virDomainGetName(dom[i]));
@@ -629,15 +711,15 @@ main (int argc, char *argv[])
       writer.result = "";
     }
 
+  std::cout << "Pausa a execucao por 10 segundos para dar tempo de as maquinas darem boot" << std::endl;
+  sleep(10);
+
   // Setup bridge to enable broadcast
-  std::cout << "Setuping bridge device to allow broadcast";
+  std::cout << "Setuping bridge device to allow broadcast" << std::endl;
   concat = "sudo /bin/bash " + getFilenamePath(srcImage) + "setup_bridge.sh";
   system(concat.c_str());
 
   //print_doc("UTF8 file from wide stream", document, resultado);
-
-  //Using the loop to attribute traces to each node
-  //Ns2MobilityHelper ns2 = Ns2MobilityHelper (traceFile);
 
   // open log file for output
   os.open (logFile.c_str ());
@@ -656,9 +738,7 @@ main (int argc, char *argv[])
   // the right side.
   //
   NodeContainer nodes;
-  //nodes.Create (2);
   nodes.Create (tNodes);
-
 
   // Create Ns2MobilityHelper with the specified trace log file as parameter
   int counter = 0;
@@ -674,10 +754,6 @@ main (int argc, char *argv[])
       counter++;
     }
 
-  // Create all nodes.
-  //NodeContainer stas;
-  //stas.Create (nodeNum);
-
   /* if(sNodes > 0)
     ns2.Install (1, (1+mNodes)); // configure movements for mobile nodes from the second(Node number 1) node
                                   //if there are static ones.
@@ -686,7 +762,6 @@ main (int argc, char *argv[])
   //ns2.Install (); // configure movements for each node, while reading trace file.
   //Teste do vetor de NS2MobilityHelper
   //ns2.Install (nodes.Begin(), nodes.Begin());
-
 
   //
   // We're going to use 802.11 A so set up a wifi helper to reflect that.
@@ -724,56 +799,28 @@ main (int argc, char *argv[])
   // constant position to the ghost nodes.
   //
 
-  MobilityHelper mobility;
-  mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
-                                 "MinX", DoubleValue (0.0),
-                                 "MinY", DoubleValue (0.0),
-                                 "DeltaX", DoubleValue (2.5),
-                                 "DeltaY", DoubleValue (8.9),
-                                 "GridWidth", UintegerValue (3),
-                                 "LayoutType", StringValue ("RowFirst"));
+  //  MobilityHelper mobility;
+  //  mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
+  //                                 "MinX", DoubleValue (0.0),
+  //                                 "MinY", DoubleValue (0.0),
+  //                                 "DeltaX", DoubleValue (2.5),
+  //                                 "DeltaY", DoubleValue (8.9),
+  //                                 "GridWidth", UintegerValue (3),
+  //                                 "LayoutType", StringValue ("RowFirst"));
 
   //Define a mobilidade com RandomWalk2DMobilityModel e velocidade constante de 10m/s
-  mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
-                             "Bounds", RectangleValue (Rectangle (-10, 50, -10, 50)),
-                             "Speed",  StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
-
-  //Mobilidade do no central
-  //mobility.Install (nodes);
-
-
-  /*MobilityHelper mobility;
-  ObjectFactory pos;
-        pos.SetTypeId ("ns3::GridPositionAllocator");
-        pos.Set ("MinX", DoubleValue (0.0));
-        pos.Set ("MinY", DoubleValue (0.0));
-        pos.Set ("DeltaX", DoubleValue (5.0));
-        pos.Set ("DeltaY", DoubleValue (5.0));
-        pos.Set ("GridWidth", UintegerValue (10));
-        pos.Set ("LayoutType", StringValue ("RowFirst"));
-
-        Ptr<Object> posAlloc =(pos.Create());
-
-        mobility.SetMobilityModel ("ns3::RandomWaypointMobilityModel",
-            "Speed", RandomVariableValue (UniformVariable (0.3,0.7)),
-            "Pause", RandomVariableValue (ConstantVariable(2.0)),
-            "PositionAllocator", PointerValue (posAlloc));
-
-        mobility.SetPositionAllocator ("ns3::RandomDiscPositionAllocator",
-                                 "X", StringValue ("50.0"),
-                                 "Y", StringValue ("50.0"),
-                                 "Rho", StringValue ("Uniform: 0:10"));
-
-  mobility.Install (nodes.Get (1));*/
+  //  mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
+  //                             "Bounds", RectangleValue (Rectangle (-10, 50, -10, 50)),
+  //                             "Speed",  StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
 
 
   //Configuracao dos nos fixos na virtualizacao
-  MobilityHelper mobility2;
-  Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-  positionAlloc->Add (Vector (5.0, 5.0, 0.0));
-  positionAlloc->Add (Vector (38.0, 42.0, 0.0));
-  mobility2.SetPositionAllocator (positionAlloc);
-  mobility2.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  //  MobilityHelper mobility2;
+  //  Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
+  //  positionAlloc->Add (Vector (5.0, 5.0, 0.0));
+  //  positionAlloc->Add (Vector (38.0, 42.0, 0.0));
+  //  mobility2.SetPositionAllocator (positionAlloc);
+  //  mobility2.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   //Instalacao de mobilidade estatica - Comentado para o teste do vetor de NS2Mobility e para nao
   //deixar o no 0 parado o tempo todo.
   //mobility2.Install (nodes.Get (0));
@@ -798,7 +845,7 @@ main (int argc, char *argv[])
   TapBridgeHelper tapBridge (interfaces.GetAddress(1));
   tapBridge.SetAttribute ("Mode", StringValue ("UseLocal"));
 
-  std::cout << "Criando interfacesTap...\n";
+  std::cout << "Criando interfacesTap..." << std::endl;
 
   std::string command4 = "sudo tunctl -u daniel -t ";
   std::string command5 = "sudo brctl addif ";
@@ -807,10 +854,10 @@ main (int argc, char *argv[])
   for (int i = 0; i < tNodes; i++) {
       concat = command4 + tapName(i);
       system (concat.c_str());
-      //std::cout << "Comando1: " << concat << " \n";
+      //std::cout << "Comando1: " << concat << std::endl;
       concat = command5 + brName(i) + " " + tapName(i);
       system (concat.c_str());
-      //std::cout << "Comando2: " << concat << " \n";
+      //std::cout << "Comando2: " << concat << std::endl;
       concat = command2 + tapName(i) + command6 + command3;
       system (concat.c_str());
     }
@@ -819,22 +866,7 @@ main (int argc, char *argv[])
       tapBridge.Install (nodes.Get (i), devices.Get (i));
     }
 
-  std::cout << "Criando interfacesTap OK...\n";
-  //  tapBridge.SetAttribute ("DeviceName", StringValue ("tap0"));
-
-
-  //
-  // Connect the right side tap to the right side wifi device on the right-side
-  // ghost node.
-  //
-  //tapBridge.SetAttribute ("DeviceName", StringValue ("tap-middle"));
-  //  tapBridge.SetAttribute ("DeviceName", StringValue ("tap1"));
-  //tapBridge.Install (nodes.Get (1), devices.Get (1));
-
-  //tapBridge.SetAttribute ("DeviceName", StringValue ("tap-right"));
-  //  tapBridge.SetAttribute ("DeviceName", StringValue ("tap1"));
-  //tapBridge.Install (nodes.Get (2), devices.Get (2));
-
+  std::cout << "Criando interfacesTap OK..." << std::endl;
 
   //
   // Run the simulation for ten minutes to give the user time to play around
@@ -842,27 +874,30 @@ main (int argc, char *argv[])
   Simulator::Stop (Seconds (duration));
 
 
-  //Adiconado para geracao de captura pcap. Ddevice vem de NetDeviceContainer devices = wifi.Install (wifiPhy, wifiMac, nodes);
+  //Adiconado para geracao de captura pcap. Device vem de NetDeviceContainer devices = wifi.Install (wifiPhy, wifiMac, nodes);
   for (int i = 0; i < tNodes; i++) {
       wifiPhy.EnablePcap ("mula", devices.Get (i), true);
     }
 
-
-  /*std::ostringstream oss;
-  oss <<
-        "/NodeList/" << nodes.Get (1)-> GetId () <<
-        "/$ns3::MobilityModel/CourseChange";
-
-  Config::Connect (oss.str (), MakeCallback (&CourseChange));
-         */
-
   Config::Connect ("/NodeList/*/$ns3::MobilityModel/CourseChange", MakeBoundCallback (&CourseChange, &os));
 
   std::cout << "System Running..." << std::endl;
+
   Simulator::Run ();
 
-  AnimationInterface anim ("animation.xml");
-  //Para o ambiente de forma graciosa
+  AnimationInterface anim (animationName(currentRun));
+
+  //Coleta os logs das Maquinas Virtuais
+  colectLogs();
+
+  //Para as maquinas virtuais de forma correta
+  stopVirtualMachines();
+
+  //Pausa 5 segundos para dar tempo de as maquinas desligarem
+  sleep(5);
+
+  std::cout << "System shutting down" << std::endl;
+
   stopSystem();
 
   return 0;
