@@ -5,7 +5,6 @@
 /home/daniel/Downloads/vdt/vdt/ns_movements/3031/3031.gpx.ns_movements
 /home/daniel/Downloads/vdt/vdt/ns_movements/3032/3032.gpx.ns_movements
 /home/daniel/Downloads/vdt/vdt/ns_movements/3033/3033.gpx.ns_movements
-/home/daniel/Downloads/vdt/vdt/ns_movements/3035/3035.gpx.ns_movements
 /home/daniel/Downloads/vdt/vdt/ns_movements/3037/3037.gpx.ns_movements
 /home/daniel/Downloads/vdt/vdt/ns_movements/3039/3039.gpx.ns_movements
 /home/daniel/Downloads/vdt/vdt/ns_movements/3041/3041.gpx.ns_movements
@@ -16,3 +15,4 @@
 /home/daniel/Downloads/vdt/vdt/ns_movements/3211/3211.gpx.ns_movements
 /home/daniel/Downloads/vdt/vdt/ns_movements/3213/3213.gpx.ns_movements
 /home/daniel/Downloads/vdt/vdt/ns_movements/3215/3215.gpx.ns_movements
+/home/daniel/Downloads/vdt/vdt/ns_movements/3103/3103.gpx.ns_movements
