@@ -56,8 +56,64 @@
 #include "ns3/mobility-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/ns2-mobility-helper.h"
+#include "ns3/netanim-module.h"
 
 using namespace ns3;
+
+//Variavel global que armazena o num de nos total
+int globalNumOfNodes;
+
+int stringToint (std::string string)
+{
+  int value;
+  std::stringstream str(string);
+  if (!(str >> value))
+    return 0;
+  else
+    return value;
+}
+
+bool validateTracesFile (std::string tracesFile, std::string *fileArray)
+{
+  // To where each of traces file will be read to.
+  std::string tracesLineRead;
+  int numberOfNodes = 0;
+  int cnt = 0;
+
+  std::ifstream traces(tracesFile.c_str ());
+
+  if (traces.is_open()) {
+      if (std::getline(traces, tracesLineRead)){
+          numberOfNodes = stringToint(tracesLineRead);
+          // check if the number of files
+          if (!numberOfNodes || numberOfNodes < globalNumOfNodes) {
+              traces.close();
+              std::cout << "Wrong number of nodes in traces file.";
+              return false;
+            } else {
+              while (traces.good()) {
+                  if (std::getline(traces, tracesLineRead)) {
+                      // Debug
+                      std::cout << tracesLineRead << std::endl;
+                      fileArray[cnt] = tracesLineRead;
+                      cnt++;
+                    }
+                }
+              if (cnt == numberOfNodes) {
+                  traces.close();
+                  std::cout << "Traces File is Valid";
+                  return true;
+                }
+            }
+        } else {
+          traces.close();
+          std::cout << "Could not read number of lines in traces file; Check if file is correct.";
+          return false;
+        }
+    }
+  std::cout << "Could not traces file for read. Check if the file path is correct";
+  return false;
+}
 
 // Prints actual position and velocity when a course change event occurs
 static void
@@ -108,8 +164,17 @@ int main (int argc, char *argv[])
       return 0;
     }
 
+  //Passar o num de nos total para ma variavel global que usuara isso para terminar taps e bridges
+  globalNumOfNodes = nodeNum;
+
+  //Array para guardar os enderecos dos arquivos de mobilidade
+  std::string traceFileArray[nodeNum];
+
+  if (!validateTracesFile(traceFile, traceFileArray))
+    return 0;
+
   // Create Ns2MobilityHelper with the specified trace log file as parameter
-  Ns2MobilityHelper ns2 = Ns2MobilityHelper (traceFile);
+  //Ns2MobilityHelper ns2 = Ns2MobilityHelper (traceFile);
 
   // open log file for output
   std::ofstream os;
@@ -119,13 +184,28 @@ int main (int argc, char *argv[])
   NodeContainer stas;
   stas.Create (nodeNum);
 
-  ns2.Install (); // configure movements for each node, while reading trace file
+  // Create Ns2MobilityHelper with the specified trace log file as parameter
+  int counter = 0;
+  Ns2MobilityHelper *traces[nodeNum];
+  //Hack para evitar unused variable warnnig do NS3
+  (void) traces;
+  for (NodeList::Iterator j = NodeList::Begin ();
+       j != NodeList::End (); ++j)
+    {
+      traces[counter] = new Ns2MobilityHelper (traceFileArray[counter]);
+      std::cout << "Instalando mobilidade nos nos com o trace do NS2. No: " << counter << std::endl;
+      traces[counter]->Install(*j);
+      counter++;
+    }
+
+  //ns2.Install (); // configure movements for each node, while reading trace file
 
   // Configure callback for logging
   Config::Connect ("/NodeList/*/$ns3::MobilityModel/CourseChange",
                    MakeBoundCallback (&CourseChange, &os));
 
   Simulator::Stop (Seconds (duration));
+  AnimationInterface anim ("animation.xml");
   Simulator::Run ();
   Simulator::Destroy ();
 
