@@ -459,6 +459,7 @@ void colectLogs()
   std::string command3 = " /root/logs/throughput .";
   std::string command4 = "./vdt/pssh_expect.exp root hosts \"rm -rf /root/logs/throughput/*\"";
   std::string command5 = "./vdt/pssh_expect.exp root hosts \"uci get system.@system[0].hostname\"";
+  std::string command6 = "./pssh_expect.exp root ../hosts \"ifconfig eth0 | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}' && uci get system.@system[0].hostname\"";
 
   //Criar pasta de destino dos arquivos da rodada
   concat = "mkdir -p /home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun);
@@ -476,6 +477,10 @@ void colectLogs()
 
   //Criar arquivo de hostnames
   concat = command5 + " > " + "/home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun) + "/hostnames.txt";
+  system (concat.c_str());
+
+  //Criar arquivo de hostnames e mac address
+  concat = command6 + " > " + "/home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun) + "/hostnames_and_mac.txt";
   system (concat.c_str());
 
   //Salvar arquivos pcap
