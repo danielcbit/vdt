@@ -214,7 +214,7 @@ std::string animationName(int num)
   std::string ret;
   ss >> ret;
 
-  return "animation" + ret;
+  return "animation" + ret + ".xml";
 }
 
 std::string runFolderName(int num)
@@ -459,7 +459,8 @@ void colectLogs()
   std::string command3 = " /root/logs/throughput .";
   std::string command4 = "./vdt/pssh_expect.exp root hosts \"rm -rf /root/logs/throughput/*\"";
   std::string command5 = "./vdt/pssh_expect.exp root hosts \"uci get system.@system[0].hostname\"";
-  std::string command6 = "./pssh_expect.exp root ../hosts \"ifconfig eth0 | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}' && uci get system.@system[0].hostname\"";
+  std::string command6 = "./vdt/pssh_expect.exp root hosts \"ifconfig eth0 | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}' && uci get system.@system[0].hostname\"";
+  std::string command7 = " /root/logs/tool.* .";
 
   //Criar pasta de destino dos arquivos da rodada
   concat = "mkdir -p /home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun);
@@ -470,6 +471,10 @@ void colectLogs()
 
   //Copiar arquivos das maquinas virtuais para pasta de experimentos
   concat  = command2 + "/home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun) + command3;
+  system (concat.c_str());
+
+  //Copiar logs do medidor de vazao das maquinas virtuais para pasta de experimentos
+  concat  = command2 + "/home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun) + command7;
   system (concat.c_str());
 
   //Apagar arquivos das maquinas virtuais
@@ -484,10 +489,10 @@ void colectLogs()
   system (concat.c_str());
 
   //Salvar arquivos pcap
-  concat = "mkdir " + runFolderName(currentRun);
-  system (concat.c_str());
-  concat = "mv *.pcap " + runFolderName(currentRun);
-  system (concat.c_str());
+  //concat = "mkdir " + runFolderName(currentRun);
+  //system (concat.c_str());
+  //concat = "mv *.pcap " + runFolderName(currentRun);
+  //system (concat.c_str());
 }
 
 void stopVirtualMachines()
@@ -716,8 +721,8 @@ main (int argc, char *argv[])
       writer.result = "";
     }
 
-  std::cout << "Pausa a execucao por 10 segundos para dar tempo de as maquinas darem boot" << std::endl;
-  sleep(10);
+  std::cout << "Pausa a execucao por 20 segundos para dar tempo de as maquinas darem boot" << std::endl;
+  sleep(20);
 
   // Setup bridge to enable broadcast
   std::cout << "Setuping bridge device to allow broadcast" << std::endl;
@@ -787,11 +792,15 @@ main (int argc, char *argv[])
   //
   YansWifiChannelHelper wifiChannel;
   wifiChannel.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
-  wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
+  //Reference Loss for 2.412 Ghz in LogDistancePropagationLossModel
+  wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel", "ReferenceLoss", DoubleValue(40.1));
+  //wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel", "Lambda", DoubleValue(0.12437810945273632));
   wifiChannel.AddPropagationLoss("ns3::NakagamiPropagationLossModel",
                                  "m0", DoubleValue(1.5), "m1", DoubleValue(0.75), "m2", DoubleValue(0.75));
   wifiChannel.AddPropagationLoss("ns3::RandomPropagationLossModel");
+
   YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+  wifiPhy.Set("ChannelNumber",UintegerValue(1));
   wifiPhy.SetChannel (wifiChannel.Create ());
 
   //
@@ -880,17 +889,19 @@ main (int argc, char *argv[])
 
 
   //Adiconado para geracao de captura pcap. Device vem de NetDeviceContainer devices = wifi.Install (wifiPhy, wifiMac, nodes);
-  for (int i = 0; i < tNodes; i++) {
+  /*for (int i = 0; i < tNodes; i++) {
       wifiPhy.EnablePcap ("mula", devices.Get (i), true);
-    }
+  }*/
 
   Config::Connect ("/NodeList/*/$ns3::MobilityModel/CourseChange", MakeBoundCallback (&CourseChange, &os));
 
   std::cout << "System Running..." << std::endl;
 
-  Simulator::Run ();
-
   AnimationInterface anim (animationName(currentRun));
+  anim.SetMobilityPollInterval (Seconds (1));
+  anim.EnablePacketMetadata (true);
+
+  Simulator::Run ();
 
   //Coleta os logs das Maquinas Virtuais
   colectLogs();
@@ -898,8 +909,8 @@ main (int argc, char *argv[])
   //Para as maquinas virtuais de forma correta
   stopVirtualMachines();
 
-  //Pausa 5 segundos para dar tempo de as maquinas desligarem
-  sleep(5);
+  //Pausa 10 segundos para dar tempo de as maquinas desligarem
+  sleep(10);
 
   std::cout << "System shutting down" << std::endl;
 
