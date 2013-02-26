@@ -43,7 +43,7 @@ while ($data =~ /(192\.168\.\d+\.\d+)\n/g) {
         for (my @files = glob( $dir . '/*' )) {
             open(INFILE, "$_");
             my $line = <INFILE>;
-            if ($line =~ /(\w+:\w+:\w+:\w+:\w+:\w+) received (\d+) bytes from (\w+:\w+:\w+:\w+:\w+:\w+) in (\d+) ms on \d+ \d+ \d+ at (\d+:\d+:\d+)/) {
+            if ($line =~ /(\w+:\w+:\w+:\w+:\w+:\w+) received (\d+) bytes from (\w+:\w+:\w+:\w+:\w+:\w+) in (\d+) ms on (\d+:\d+:\d+)/) {
                 my ($dstmac, $srcmac, $bytes, $bytes, $timeinms, $datetime);
                 # HOST_1 HOST_2 hora_do_contato qtde_dados tempo_decorrido_em_ms 0.0 0.0
                 $dstmac = $1;
@@ -51,10 +51,9 @@ while ($data =~ /(192\.168\.\d+\.\d+)\n/g) {
                 $srcmac = $3;
                 $timeinms = $4;
                 $datetime = $5;
-				print("line: [$line] -- ");
-				print("[$line]\n");
+				print("line: [$line] \n");
                 # print("[hostame: $hostname] [srcmac: $srcmac] [dstmac; $dstmac]\n");
-                $line = sprintf("%s\t%s\t%s\t%s\t%.1f\n", $hostnames{$srcmac}, $hostnames{$dstmac}, $datetime, $bytes, $timeinms);
+                $line = sprintf("%s\t%s\t%s\t%s\t%.1f\t0\t0\n", $hostnames{$srcmac}, $hostnames{$dstmac}, $datetime, $bytes, $timeinms);
                 push(@lines, $line);
             }
             close(INFILE);

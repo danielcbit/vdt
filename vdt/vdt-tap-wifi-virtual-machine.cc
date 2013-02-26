@@ -488,11 +488,14 @@ void colectLogs()
   concat = command6 + " > " + "/home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun) + "/hostnames_and_mac.txt";
   system (concat.c_str());
 
-  //Salvar arquivos pcap
-  //concat = "mkdir " + runFolderName(currentRun);
-  //system (concat.c_str());
-  //concat = "mv *.pcap " + runFolderName(currentRun);
-  //system (concat.c_str());
+  //Salvar arquivos anim
+  concat = "mkdir animation";
+  system (concat.c_str());
+  concat = "mv " + animationName(currentRun) + "* animation/";
+  system (concat.c_str());
+  concat = "mv animation/ /home/daniel/Dropbox/experimentos/rodadas/" + runFolderName(currentRun) + "/";
+  system (concat.c_str());
+
 }
 
 void stopVirtualMachines()
@@ -794,10 +797,15 @@ main (int argc, char *argv[])
   wifiChannel.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
   //Reference Loss for 2.412 Ghz in LogDistancePropagationLossModel
   wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel", "ReferenceLoss", DoubleValue(40.1));
+  // Values from Vehicular Network Simulation Propagation Loss Model Parameter Standardization
+  // Reference Loss 37.35
+  /*wifiChannel.AddPropagationLoss ("ns3::ThreeLogDistancePropagationLossModel", "ReferenceLoss", DoubleValue(37.35),
+                                  "Distance0", DoubleValue(1), "Distance1", DoubleValue(75), "Distance2", DoubleValue(114),
+                                  "Exponent0", DoubleValue(2.5), "Exponent1", DoubleValue(5), "Exponent2", DoubleValue(10));*/
   //wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel", "Lambda", DoubleValue(0.12437810945273632));
   wifiChannel.AddPropagationLoss("ns3::NakagamiPropagationLossModel",
-                                 "m0", DoubleValue(1.5), "m1", DoubleValue(0.75), "m2", DoubleValue(0.75));
-  wifiChannel.AddPropagationLoss("ns3::RandomPropagationLossModel");
+                                 "m0", DoubleValue(1.5), "m1", DoubleValue(0.75), "m2", DoubleValue(0),
+                                 "Distance1", DoubleValue(60), "Distance2", DoubleValue(145));
 
   YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
   wifiPhy.Set("ChannelNumber",UintegerValue(1));
@@ -897,7 +905,7 @@ main (int argc, char *argv[])
 
   std::cout << "System Running..." << std::endl;
 
-  AnimationInterface anim (animationName(currentRun));
+  AnimationInterface anim (animationName(currentRun), 10000000);
   anim.SetMobilityPollInterval (Seconds (1));
   anim.EnablePacketMetadata (true);
 
