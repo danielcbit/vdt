@@ -501,7 +501,7 @@ void colectLogs()
 void stopVirtualMachines()
 {
   std::string command1 = "./vdt/genHostsFile.sh";
-  std::string command2 = "./vdt/pssh_expect.exp root hosts reboot";
+  std::string command2 = "./vdt/pssh_expect.exp root hosts poweroff";
 
   //Gerar arquivo de host
   system (command1.c_str());
